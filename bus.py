@@ -28,6 +28,13 @@ QDIR, ADIR, TMP = BUS / "q", BUS / "a", BUS / "tmp"
 FORKS = BUS / "forks.txt"
 FORK_TIMEOUT = 300
 MAX_Q_AGE = 7200  # ponytail: daemon ignores questions older than 2h (restart safety)
+NACK_AFTER = 60   # secs before an undeliverable 1:1 question gets a NACK answer
+
+
+def _project_of(sid):
+    """Project dir name that contains this session's transcript, or None."""
+    hits = list((Path.home() / ".claude" / "projects").glob(f"*/{sid}.jsonl"))
+    return hits[0].parent.name if hits else None
 
 
 def fork_ids():
@@ -43,8 +50,8 @@ def sid_for_cwd(cwd):
     return fs[0].stem if fs else None
 
 
-def live_sessions():
-    """{session_id: cwd} for running claude processes."""
+def live_sessions_full():
+    """{session_id: {cwd, warp, pid}} for running claude processes."""
     out = {}
     pids = subprocess.run(["pgrep", "-x", "claude"],
                           capture_output=True, text=True).stdout.split()
@@ -54,10 +61,19 @@ def live_sessions():
         m = re.search(r"^n(.+)$", r, re.M)
         if not m:
             continue
+        env = subprocess.run(["ps", "-p", pid, "-wwwE", "-o", "command="],
+                             capture_output=True, text=True).stdout
+        w = re.search(r"WARP_TERMINAL_SESSION_UUID=([0-9a-f]+)", env)
         sid = sid_for_cwd(m.group(1))
         if sid:
-            out[sid] = m.group(1)
+            out[sid] = {"cwd": m.group(1),
+                        "warp": w.group(1) if w else None, "pid": pid}
     return out
+
+
+def live_sessions():
+    """{session_id: cwd} for running claude processes."""
+    return {sid: v["cwd"] for sid, v in live_sessions_full().items()}
 
 
 def answers_by(sid):
@@ -199,6 +215,47 @@ def cmd_log(args):
                 _print_event(e, names)
 
 
+WARP_DB = (Path.home() / "Library/Group Containers/2BBY89MBSN.dev.warp"
+           / "Library/Application Support/dev.warp.Warp-Stable/warp.sqlite")
+
+
+def _warp_pane_exists(warp_uuid):
+    import sqlite3
+    try:
+        con = sqlite3.connect(f"file:{WARP_DB}?mode=ro", uri=True, timeout=1)
+        try:
+            return con.execute("SELECT 1 FROM terminal_panes WHERE lower(hex(uuid))=?",
+                               (warp_uuid.lower(),)).fetchone() is not None
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return True  # can't verify -> don't block (caller beware)
+
+
+def cmd_inject(args):
+    """Type a prompt into a LIVE session's Warp tab (focuses it first)."""
+    info = live_sessions_full().get(args.sid)
+    if not info:
+        sys.exit(f"session {args.sid} not live")
+    if not info["warp"]:
+        sys.exit(f"session {args.sid} is not in a Warp tab")
+    if not _warp_pane_exists(info["warp"]):
+        # Guard: dead pane means the deep link focuses nothing and the
+        # keystrokes would land in whatever Warp window is frontmost.
+        sys.exit(f"refusing to inject: Warp pane {info['warp']} no longer exists "
+                 f"(tab closed?); keystrokes could hit the wrong session")
+    subprocess.run(["open", f"warp://session/{info['warp']}"])
+    time.sleep(0.8)
+    # ponytail: osascript keystroke; needs Accessibility perms for the caller
+    safe = args.text.replace("\\", "\\\\").replace('"', '\\"')
+    script = (f'tell application "System Events" to tell process "Warp"\n'
+              f' keystroke "{safe}"\n delay 0.3\n key code 36\nend tell')
+    r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    if r.returncode:
+        sys.exit(f"inject failed: {r.stderr.strip()}")
+    print(f"injected into {args.sid[:8]} ({Path(info['cwd']).name})")
+
+
 def cmd_daemon(_):
     QDIR.mkdir(parents=True, exist_ok=True)
     ADIR.mkdir(parents=True, exist_ok=True)
@@ -230,8 +287,30 @@ def cmd_daemon(_):
                 continue
             if time.time() - q["ts"] > MAX_Q_AGE:
                 continue
+
+            to = q["to"]
+            if to != "all" and to not in live and to not in inflight:
+                # Target session id is stale (session restarted) or gone.
+                # Try re-resolving by project dir; else NACK so asker unblocks.
+                answered = (ADIR / q["id"]).exists() and any((ADIR / q["id"]).iterdir())
+                if not answered:
+                    old_proj = _project_of(q["to"])
+                    match = [s for s, c in live.items()
+                             if old_proj and _project_of(s) == old_proj and s != q["from"]]
+                    if match:
+                        to = match[0]
+                        print(f"rerouted {q['id']} {q['to'][:8]} -> {to[:8]}", flush=True)
+                    elif time.time() - q["ts"] > NACK_AFTER:
+                        listing = "\n".join(f"  {s}  {Path(c).name}" for s, c in live.items())
+                        write_answer(q["id"], "bus-daemon",
+                                     f"UNDELIVERABLE: session {q['to']} is not live "
+                                     f"(it may have restarted with a new id). Live sessions:\n{listing}",
+                                     ok=False)
+                        print(f"NACKed {q['id']} (target {q['to'][:8]} gone)", flush=True)
+                        continue
+
             for sid, cwd in live.items():
-                if sid == q["from"] or q["to"] not in ("all", sid):
+                if sid == q["from"] or to not in ("all", sid):
                     continue
                 if sid in inflight:  # busy answering: new questions wait their turn
                     continue
@@ -257,6 +336,9 @@ if __name__ == "__main__":
     lg = sub.add_parser("log")
     lg.add_argument("-n", type=int, default=20, help="show last N events")
     lg.add_argument("--follow", "-f", action="store_true")
+    inj = sub.add_parser("inject")
+    inj.add_argument("sid", help="target session id (must be live)")
+    inj.add_argument("text", help="prompt to type into the session")
     args = ap.parse_args()
     {"sessions": cmd_sessions, "ask": cmd_ask, "status": cmd_status,
-     "daemon": cmd_daemon, "log": cmd_log}[args.cmd](args)
+     "daemon": cmd_daemon, "log": cmd_log, "inject": cmd_inject}[args.cmd](args)

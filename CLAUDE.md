@@ -24,9 +24,17 @@ A single-file macOS menu bar app (`app.py`) that lists every Claude Code session
 
 No tests beyond `--list`, no lint config, no build step.
 
+## manager.py — manager console
+
+Local web UI (http://localhost:8799, stdlib http.server) to chat with a persistent "manager" Claude session that coordinates the others. Left pane: live sessions + their Claude memory files (`~/.claude/projects/<dir>/memory/*.md`, read-only browse). Middle: chat with the manager. Right: bus feed. The manager is `claude -p --output-format json --strict-mcp-config --append-system-prompt <role>` resumed via the sid stored in `~/.claude/bus/manager.json`; its sid is appended to forks.txt so it never hijacks this cwd's session identity. `--output-format json` can return an event ARRAY (not object) — `manager_reply` picks the `type=="result"` event. Port 8765 was taken (quickwork); using 8799.
+
 ## bus.py — inter-session bus
 
 File-based bus letting live Claude sessions ask each other questions (`~/.claude/bus/`: `q/` questions, `a/<qid>/` answers, `forks.txt` fork ids, `tmp/` fork stdout/err). A daemon (`bus.py daemon`) watches `q/` and answers on behalf of each target session by forking it: `claude -p --resume <sid> --fork-session --session-id <fresh-uuid>` run in the target's cwd — the live session is never touched. One in-flight fork per session (queue, no fork storms); 300s fork timeout; questions older than 2h ignored. Session identity = newest non-fork transcript in the cwd's project dir (fork ids from forks.txt are excluded, so forks don't hijack identity). `ask` prints how many questions your own forks have answered (metadata for self-awareness); `status` lists them. The `bus` skill (~/.claude/skills/bus/SKILL.md) teaches sessions the commands. Daemon: `nohup .env/bin/python bus.py daemon >/tmp/bus-daemon.log 2>&1 &`.
+
+Undeliverable 1:1 questions (target sid stale because the session restarted): daemon re-resolves by project dir and reroutes to the live session there; if none, after 60s (`NACK_AFTER`) it writes an `UNDELIVERABLE` answer (ok=false, `from: bus-daemon`) listing live sessions, so `ask --wait` unblocks instead of hanging.
+
+`bus.py inject <sid> "prompt"` types a prompt into the live session's Warp tab: focuses via `warp://session/<warp-uuid>`, then osascript keystrokes + Return (needs Accessibility permission). Guard: refuses if the warp pane uuid is no longer in Warp's sqlite (keystrokes would land in the frontmost window otherwise). This is the manager's write path after fork-based reads.
 
 ## Notes
 
