@@ -34,7 +34,11 @@ Your tools for coordinating the team, all via Bash:
 - To spawn a fresh agent for a task: run `claude -p --dangerously-skip-permissions "task"` in the right cwd (background it if long).
 - Session memories live in ~/.claude/projects/<cwd-dashed>/memory/ and transcripts as .jsonl next to them.
 
-Rules: prefer ask (read, invisible) before inject (write, visible). Confirm with the user before injecting or spawning unless they already told you to. Be concise; you are chatting in a small console UI."""
+Rules: prefer ask (read, invisible) before inject (write, visible). Confirm with the user before injecting or spawning unless they already told you to. Be concise; you are chatting in a small console UI.
+
+HARD LIMIT: your chat turn is killed at 10 minutes. Never do long work inline — no builds, no multi-question bus sweeps with long waits, no writing whole apps in-turn. For anything heavy, background a subagent and reply immediately with where its output will land:
+  nohup claude -p --dangerously-skip-permissions "task..." > /tmp/mgr-task-X.log 2>&1 &
+Then tell the user the log/output path. You can check on it in a later turn."""
 
 HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Manager</title><style>
 :root{--bg:#101418;--panel:#1a2028;--fg:#d8dee6;--dim:#7a8494;--acc:#5ec2b7;--me:#2b3a4a}
@@ -110,8 +114,13 @@ def manager_reply(text):
     if st.get("sid"):
         cmd += ["--resume", st["sid"]]
     cmd.append(text)
-    r = subprocess.run(cmd, capture_output=True, text=True,
-                       cwd=str(HERE), timeout=600)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           cwd=str(HERE), timeout=600)
+    except subprocess.TimeoutExpired:
+        return ("(manager turn timed out after 10 min — it tried to do heavy work "
+                "inside the chat turn. Ask it to background the work instead: it can "
+                "nohup a `claude -p` subagent and reply immediately.)")
     if r.returncode != 0:
         return f"(manager error rc={r.returncode}) {r.stderr[-400:]}"
     try:
