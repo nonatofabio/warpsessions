@@ -256,6 +256,31 @@ def cmd_inject(args):
     print(f"injected into {args.sid[:8]} ({Path(info['cwd']).name})")
 
 
+def cmd_spawn(args):
+    """Open a NEW visible Warp tab running claude in a folder (user can watch)."""
+    d = Path(args.dir).expanduser().resolve()
+    d.mkdir(parents=True, exist_ok=True)
+    claude_cmd = "claude"  # user shell alias already adds skip-permissions
+    if args.prompt:
+        claude_cmd += " " + json.dumps(args.prompt)  # json.dumps = safe shell quoting here
+    cfg = f"""---
+name: bus-spawn
+windows:
+  - tabs:
+      - title: {d.name}
+        layout:
+          cwd: {d}
+          commands:
+            - exec: {claude_cmd}
+"""
+    cfgdir = Path.home() / ".warp" / "launch_configurations"
+    cfgdir.mkdir(parents=True, exist_ok=True)
+    name = f"bus-spawn-{d.name}"
+    (cfgdir / f"{name}.yaml").write_text(cfg.replace("name: bus-spawn", f"name: {name}"))
+    subprocess.run(["open", f"warp://launch/{name}"])  # launch URI takes the config NAME
+    print(f"spawned Warp tab in {d}" + (f" with prompt: {args.prompt[:60]}" if args.prompt else ""))
+
+
 def cmd_daemon(_):
     QDIR.mkdir(parents=True, exist_ok=True)
     ADIR.mkdir(parents=True, exist_ok=True)
@@ -339,6 +364,10 @@ if __name__ == "__main__":
     inj = sub.add_parser("inject")
     inj.add_argument("sid", help="target session id (must be live)")
     inj.add_argument("text", help="prompt to type into the session")
+    sp = sub.add_parser("spawn")
+    sp.add_argument("dir", help="folder for the new session (created if missing)")
+    sp.add_argument("prompt", nargs="?", default="", help="optional kickoff prompt")
     args = ap.parse_args()
     {"sessions": cmd_sessions, "ask": cmd_ask, "status": cmd_status,
-     "daemon": cmd_daemon, "log": cmd_log, "inject": cmd_inject}[args.cmd](args)
+     "daemon": cmd_daemon, "log": cmd_log, "inject": cmd_inject,
+     "spawn": cmd_spawn}[args.cmd](args)

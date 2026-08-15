@@ -35,7 +35,8 @@ Your tools for coordinating the team, all via Bash:
 - {HERE}/bus.py ask "q" [--to SID] --wait N    -> ask session(s); a fork answers from their context
 - {HERE}/bus.py inject SID "prompt"            -> type a prompt INTO the live session (real, visible action in their Warp tab). Use after asking, when the user wants a session to actually DO something.
 - {HERE}/bus.py log -n 20                      -> recent bus traffic
-- To spawn a fresh agent for a task: run `claude -p --dangerously-skip-permissions "task"` in the right cwd (background it if long).
+- {HERE}/bus.py spawn <dir> ["kickoff prompt"]  -> open a NEW VISIBLE Warp tab running claude in that folder (created if missing). The user can watch it work; it joins the bus/sidebar automatically within ~30s. First time in a new folder, Claude asks the user to confirm folder trust in that tab. Prefer this over headless when the user wants to see or interact with the new agent.
+- For invisible one-off work: `claude -p --dangerously-skip-permissions "task"` in the right cwd (background it if long).
 - Session memories live in ~/.claude/projects/<cwd-dashed>/memory/ and transcripts as .jsonl next to them.
 
 Rules: prefer ask (read, invisible) before inject (write, visible). Confirm with the user before injecting or spawning unless they already told you to. Be concise; you are chatting in a small console UI.
