@@ -278,8 +278,36 @@ windows:
     cfgdir.mkdir(parents=True, exist_ok=True)
     name = f"bus-spawn-{d.name}"
     (cfgdir / f"{name}.yaml").write_text(cfg.replace("name: bus-spawn", f"name: {name}"))
-    subprocess.run(["open", f"warp://launch/{name}"])  # launch URI takes the config NAME
-    print(f"spawned Warp tab in {d}" + (f" with prompt: {args.prompt[:60]}" if args.prompt else ""))
+
+    def pane_exists():
+        import sqlite3
+        try:
+            con = sqlite3.connect(f"file:{WARP_DB}?mode=ro", uri=True, timeout=1)
+            try:
+                return con.execute("SELECT 1 FROM terminal_panes WHERE cwd=?",
+                                   (str(d),)).fetchone() is not None
+            finally:
+                con.close()
+        except sqlite3.Error:
+            return False
+
+    already = pane_exists()
+    for attempt in (1, 2):
+        subprocess.run(["open", f"warp://launch/{name}"])  # launch URI takes the config NAME
+        for _ in range(10):  # verify against Warp's pane table = ground truth
+            time.sleep(1)
+            if pane_exists() and not already:
+                print(f"VERIFIED: Warp tab open in {d}"
+                      + (f" with prompt: {args.prompt[:60]}" if args.prompt else ""))
+                return
+            if already and pane_exists():
+                # a pane in this cwd predates us; can't distinguish -> report honestly
+                print(f"NOTE: a Warp pane already existed in {d}; launch requested, "
+                      "verify visually or via `bus.py sessions` in ~30s")
+                return
+    sys.exit(f"FAILED: Warp never opened a pane in {d} after 2 attempts. "
+             "Likely an invalid launch config (YAML) or Warp not running. "
+             f"Config: {cfgdir / (name + '.yaml')}")
 
 
 def cmd_daemon(_):
