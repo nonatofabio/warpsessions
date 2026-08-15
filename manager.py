@@ -115,7 +115,7 @@ padding:0 16px;cursor:pointer;margin:4px 0}button:disabled{opacity:.4}
 </div>
 <script>
 const $=q=>document.querySelector(q), $$=q=>document.querySelectorAll(q);
-let cur='manager', names={}, pollT=null;
+let cur='manager', names={}, inflight=false;
 const COLORS=['#5865f2','#23a559','#f0b232','#eb459e','#3ba55c','#faa61a','#7289da','#e91e63'];
 const col=s=>COLORS[[...s].reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length];
 const md=t=>DOMPurify.sanitize(marked.parse(t||''));
@@ -147,18 +147,24 @@ function render(list){const el=$('#msgs');el.innerHTML='';
    <span class="t">${m.t}</span></div><div class="txt">${m.pending?'<span class="pending">'+m.text+'</span>':md(m.text)}</div></div>`;
   el.appendChild(d)});
  el.scrollTop=1e9}
-async function loadMsgs(){const d=await j('/api/messages?ch='+cur);render(d)}
+async function loadMsgs(){if(inflight)return;const d=await j('/api/messages?ch='+cur);render(d)}
 function switchCh(ch){cur=ch;$('#head').innerHTML=chName()+`<small>${chTopic()}</small>`;
  $('#in').placeholder='Message '+chName();sidebar();loadMsgs()}
 $$('#side .ch').forEach(e=>e.onclick=()=>switchCh(e.dataset.ch));
+function bubble(who,text,pending){const el=$('#msgs');
+ const d=document.createElement('div');d.className='msg';
+ d.innerHTML=`<div class="av" style="background:${col(who)}">${who[0].toUpperCase()}</div>
+  <div class="body"><div class="hd"><span class="who">${who}</span>
+  <span class="t">now</span></div><div class="txt">${pending?'<span class="pending">'+text+'</span>':md(text)}</div></div>`;
+ el.appendChild(d);el.scrollTop=1e9;return d}
 async function send(){const t=$('#in').value.trim();if(!t)return;$('#in').value='';
- const optimistic={who:'you',t:'now',text:t};
- const curList=[...$('#msgs').children];
- render([...( $('#msgs').dataset.last?[]:[]),]);
- $('#send').disabled=true;
- try{await fetch('/api/say',{method:'POST',body:JSON.stringify({ch:cur,text:t})})}
- catch(e){}
- $('#send').disabled=false;loadMsgs()}
+ bubble('you',t);
+ const wait=bubble(cur==='manager'?'manager':'bus',
+  cur==='manager'?'thinking…':'delivering to fork(s)…',true);
+ const ch=cur;$('#send').disabled=true;inflight=true;
+ try{await fetch('/api/say',{method:'POST',body:JSON.stringify({ch,text:t})})}
+ catch(e){wait.querySelector('.txt').textContent='send failed: '+e}
+ $('#send').disabled=false;inflight=false;if(cur===ch)loadMsgs()}
 $('#send').onclick=send;
 $('#in').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 switchCh('manager');setInterval(loadMsgs,4000);setInterval(sidebar,15000);sidebar();
