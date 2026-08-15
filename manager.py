@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Manager console: chat with a persistent 'manager' Claude session that can
-talk to every other live session (via bus.py), browse their Claude memories,
-and inject follow-up commands into live sessions.
+"""Manager console — Discord-style chat over the session bus.
 
-    .env/bin/python manager.py          # http://localhost:8765
+    .env/bin/python manager.py          # http://localhost:8799
 
-Stdlib only. The manager is a real headless Claude session (claude -p) with
-tools enabled, so it asks/injects/spawns by running bus.py itself.
+Channels:
+  #manager   — chat with the persistent manager Claude session
+  #general   — broadcast to ALL live sessions (each answers via a fork)
+  @<session> — 1:1 channel per live session (bus ask --to under the hood)
+
+Click a session name to open its channel; the ⤴ button jumps to its Warp tab.
+Stdlib only on the server; marked + DOMPurify from CDN for markdown.
 """
 
 import json
-import re
 import subprocess
 import threading
 import time
@@ -22,6 +24,8 @@ import bus
 PORT = 8799
 HERE = Path(__file__).resolve().parent
 STATE = Path.home() / ".claude" / "bus" / "manager.json"
+CHAT_LOG = Path.home() / ".claude" / "bus" / "manager-chat.jsonl"
+DASHBOARD = HERE / "overnight" / "dashboard.html"
 LOCK = threading.Lock()  # ponytail: one manager turn at a time
 
 SYSTEM_PROMPT = f"""You are the MANAGER of all Claude Code sessions on this machine.
@@ -40,67 +44,123 @@ HARD LIMIT: your chat turn is killed at 10 minutes. Never do long work inline �
   nohup claude -p --dangerously-skip-permissions "task..." > /tmp/mgr-task-X.log 2>&1 &
 Then tell the user the log/output path. You can check on it in a later turn."""
 
-HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Manager</title><style>
-:root{--bg:#101418;--panel:#1a2028;--fg:#d8dee6;--dim:#7a8494;--acc:#5ec2b7;--me:#2b3a4a}
+HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<style>
+:root{--bg:#313338;--side:#2b2d31;--sidedark:#1e1f22;--fg:#dbdee1;--dim:#949ba4;
+--acc:#5865f2;--green:#23a559;--red:#f23f43;--hover:#35373c;--chip:#404249}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);
-font:14px/1.45 -apple-system,Helvetica,sans-serif;display:grid;
-grid-template-columns:230px 1fr 330px;height:100vh}
-h2{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:14px 12px 6px}
-#side,#right{background:var(--panel);overflow-y:auto}
-.sess{padding:7px 12px;cursor:pointer;border-left:3px solid transparent}
-.sess:hover{background:#232b36}.sess.sel{border-left-color:var(--acc);background:#232b36}
-.sess .n{font-weight:600}.sess .c{color:var(--dim);font-size:11px}
-#chat{display:flex;flex-direction:column;height:100vh}
-#msgs{flex:1;overflow-y:auto;padding:16px 20px}
-.m{max-width:78%;margin:6px 0;padding:9px 12px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
-.me{background:var(--me);margin-left:auto}.mgr{background:#20303c}
-.sysnote{color:var(--dim);font-size:12px;text-align:center;margin:8px 0}
-#inbar{display:flex;gap:8px;padding:12px;border-top:1px solid #2a3340}
-#in{flex:1;background:#0d1117;border:1px solid #2a3340;border-radius:8px;color:var(--fg);
-padding:10px;font:inherit;resize:none;height:60px}
-button{background:var(--acc);border:0;border-radius:8px;color:#08201d;font-weight:700;
-padding:0 18px;cursor:pointer}button:disabled{opacity:.4}
-#mem{padding:4px 12px 20px;font-size:12px}
-#mem pre{background:#0d1117;padding:10px;border-radius:8px;white-space:pre-wrap;
-word-wrap:break-word;max-height:46vh;overflow-y:auto}
-.mfile{color:var(--acc);cursor:pointer;padding:2px 0}.mfile:hover{text-decoration:underline}
-#busfeed{padding:4px 12px;font-size:12px}
-.be{margin:6px 0;color:var(--dim)}.be b{color:var(--fg);font-weight:600}
-.spin{color:var(--dim);font-style:italic}
+font:14px/1.5 -apple-system,'Segoe UI',Helvetica,sans-serif;display:grid;
+grid-template-columns:250px 1fr;height:100vh}
+#side{background:var(--side);display:flex;flex-direction:column;overflow-y:auto}
+#side .top{padding:14px 14px 8px;border-bottom:1px solid var(--sidedark)}
+#side .top b{font-size:15px}
+#side .top a{display:block;margin-top:8px;color:#00a8fc;font-size:13px;text-decoration:none}
+#side .top a:hover{text-decoration:underline}
+h3{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);
+margin:16px 10px 4px;font-weight:600}
+.ch{display:flex;align-items:center;gap:8px;margin:1px 8px;padding:6px 8px;
+border-radius:5px;cursor:pointer;color:var(--dim)}
+.ch:hover{background:var(--hover);color:var(--fg)}
+.ch.sel{background:var(--chip);color:#fff}
+.ch .hash{opacity:.7;width:14px;text-align:center}
+.ch .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch .st{font-size:9px}.st.working{color:var(--green)}.st.blocked{color:var(--red)}
+.st.waiting{color:var(--dim)}
+.ch .jump{visibility:hidden;border:0;background:none;color:var(--dim);cursor:pointer;
+font-size:14px;padding:0 2px}
+.ch:hover .jump{visibility:visible}.ch .jump:hover{color:#fff}
+#main{display:flex;flex-direction:column;height:100vh;min-width:0}
+#head{padding:12px 18px;border-bottom:1px solid var(--sidedark);font-weight:700}
+#head small{color:var(--dim);font-weight:400;margin-left:10px}
+#msgs{flex:1;overflow-y:auto;padding:10px 18px}
+.msg{display:flex;gap:12px;padding:7px 4px;border-radius:4px}
+.msg:hover{background:#2e3035}
+.av{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
+justify-content:center;font-weight:700;font-size:15px;color:#fff}
+.body{min-width:0;flex:1}
+.hd .who{font-weight:600}.hd .t{color:var(--dim);font-size:11px;margin-left:8px}
+.txt{overflow-wrap:break-word}
+.txt p{margin:4px 0}.txt pre{background:var(--sidedark);padding:8px 10px;border-radius:6px;
+overflow-x:auto;font-size:13px}.txt code{background:var(--sidedark);padding:1px 4px;
+border-radius:4px;font-size:13px}.txt pre code{padding:0;background:none}
+.txt ul,.txt ol{margin:4px 0;padding-left:22px}
+.txt a{color:#00a8fc}.txt h1,.txt h2,.txt h3{margin:8px 0 4px;font-size:15px}
+.pending{color:var(--dim);font-style:italic}
+.err .txt{color:var(--red)}
+#inwrap{padding:0 18px 20px}
+#inbar{display:flex;gap:8px;background:#383a40;border-radius:8px;padding:4px 6px 4px 14px}
+#in{flex:1;background:none;border:0;color:var(--fg);padding:10px 0;font:inherit;
+resize:none;height:44px;outline:none}
+button{background:var(--acc);border:0;border-radius:6px;color:#fff;font-weight:600;
+padding:0 16px;cursor:pointer;margin:4px 0}button:disabled{opacity:.4}
+.sysnote{color:var(--dim);font-size:12px;text-align:center;margin:10px 0}
 </style></head><body>
-<div id="side"><h2>Live sessions</h2><div id="slist"></div>
-<h2>Memory</h2><div id="mem">select a session</div></div>
-<div id="chat"><div id="msgs"><div class="sysnote">manager console — one persistent Claude session with bus powers</div></div>
-<div id="inbar"><textarea id="in" placeholder="Talk to the manager… (Enter to send, Shift+Enter newline)"></textarea>
-<button id="send">Send</button></div></div>
-<div id="right"><h2>Bus feed</h2><div id="busfeed"></div></div>
+<div id="side">
+ <div class="top"><b>Manager Console</b><a id="dash" href="/dashboard" target="_blank"
+  style="display:none">📊 Overnight dashboard</a></div>
+ <h3>Channels</h3>
+ <div class="ch" data-ch="manager"><span class="hash">👑</span><span class="nm">manager</span></div>
+ <div class="ch" data-ch="general"><span class="hash">#</span><span class="nm">general</span></div>
+ <h3>Direct — live sessions</h3><div id="dms"></div>
+</div>
+<div id="main">
+ <div id="head">👑 manager<small>persistent coordinator session</small></div>
+ <div id="msgs"></div>
+ <div id="inwrap"><div id="inbar">
+  <textarea id="in" placeholder="Message #manager"></textarea>
+  <button id="send">Send</button></div></div>
+</div>
 <script>
-const $=q=>document.querySelector(q);
-let sel=null;
+const $=q=>document.querySelector(q), $$=q=>document.querySelectorAll(q);
+let cur='manager', names={}, pollT=null;
+const COLORS=['#5865f2','#23a559','#f0b232','#eb459e','#3ba55c','#faa61a','#7289da','#e91e63'];
+const col=s=>COLORS[[...s].reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length];
+const md=t=>DOMPurify.sanitize(marked.parse(t||''));
 async function j(u,opt){const r=await fetch(u,opt);return r.json()}
-async function sessions(){const s=await j('/api/sessions');const el=$('#slist');el.innerHTML='';
- s.forEach(x=>{const d=document.createElement('div');d.className='sess'+(sel===x.sid?' sel':'');
- d.innerHTML=`<div class="n">${x.name}</div><div class="c">${x.sid.slice(0,8)} · ${x.state}</div>`;
- d.onclick=()=>{sel=x.sid;sessions();memory(x.sid)};el.appendChild(d)})}
-async function memory(sid){const m=await j('/api/memory?sid='+sid);const el=$('#mem');
- if(!m.files.length){el.innerHTML='<i>no memory files</i>';return}
- el.innerHTML='';m.files.forEach(f=>{const d=document.createElement('div');d.className='mfile';
- d.textContent=f;d.onclick=async()=>{const c=await j('/api/memory?sid='+sid+'&file='+encodeURIComponent(f));
- let pre=$('#mem pre');if(!pre){pre=document.createElement('pre');el.appendChild(pre)}
- pre.textContent=c.content};el.appendChild(d)})}
-async function feed(){const ev=await j('/api/bus');const el=$('#busfeed');el.innerHTML='';
- ev.reverse().forEach(e=>{const d=document.createElement('div');d.className='be';
- d.innerHTML=`<b>${e.icon} ${e.who}</b> ${e.t}<br>${e.text}`;el.appendChild(d)})}
-function add(cls,text){const d=document.createElement('div');d.className='m '+cls;
- d.textContent=text;$('#msgs').appendChild(d);$('#msgs').scrollTop=1e9;return d}
+function chName(){return cur==='manager'?'👑 manager':cur==='general'?'# general':'@ '+(names[cur]||cur.slice(0,8))}
+function chTopic(){return cur==='manager'?'persistent coordinator session'
+ :cur==='general'?'broadcast — every live session answers via a fork'
+ :'1:1 with a fork of this session · ⤴ jumps to its Warp tab'}
+async function sidebar(){const d=await j('/api/channels');
+ $('#dash').style.display=d.dashboard?'block':'none';
+ names={};d.sessions.forEach(s=>names[s.sid]=s.name);
+ const el=$('#dms');el.innerHTML='';
+ d.sessions.forEach(s=>{const div=document.createElement('div');
+  div.className='ch'+(cur===s.sid?' sel':'');div.dataset.ch=s.sid;
+  div.innerHTML=`<span class="st ${s.state}">●</span><span class="nm">${s.name}</span>
+   <button class="jump" title="Jump to Warp tab">⤴</button>`;
+  div.onclick=()=>switchCh(s.sid);
+  div.querySelector('.jump').onclick=e=>{e.stopPropagation();fetch('/api/jump',{method:'POST',body:JSON.stringify({sid:s.sid})})};
+  el.appendChild(div)});
+ $$('#side .ch[data-ch=manager],#side .ch[data-ch=general]').forEach(e=>
+  e.classList.toggle('sel',cur===e.dataset.ch));}
+function render(list){const el=$('#msgs');el.innerHTML='';
+ if(!list.length)el.innerHTML='<div class="sysnote">no messages yet</div>';
+ list.forEach(m=>{const d=document.createElement('div');
+  d.className='msg'+(m.ok===false?' err':'');
+  const ini=(m.who[0]||'?').toUpperCase();
+  d.innerHTML=`<div class="av" style="background:${col(m.who)}">${ini}</div>
+   <div class="body"><div class="hd"><span class="who">${m.who}</span>
+   <span class="t">${m.t}</span></div><div class="txt">${m.pending?'<span class="pending">'+m.text+'</span>':md(m.text)}</div></div>`;
+  el.appendChild(d)});
+ el.scrollTop=1e9}
+async function loadMsgs(){const d=await j('/api/messages?ch='+cur);render(d)}
+function switchCh(ch){cur=ch;$('#head').innerHTML=chName()+`<small>${chTopic()}</small>`;
+ $('#in').placeholder='Message '+chName();sidebar();loadMsgs()}
+$$('#side .ch').forEach(e=>e.onclick=()=>switchCh(e.dataset.ch));
 async function send(){const t=$('#in').value.trim();if(!t)return;$('#in').value='';
- add('me',t);const w=add('mgr spin','manager is thinking…');$('#send').disabled=true;
- try{const r=await j('/api/chat',{method:'POST',body:JSON.stringify({text:t})});
- w.textContent=r.reply;w.classList.remove('spin')}catch(e){w.textContent='error: '+e}
- $('#send').disabled=false}
+ const optimistic={who:'you',t:'now',text:t};
+ const curList=[...$('#msgs').children];
+ render([...( $('#msgs').dataset.last?[]:[]),]);
+ $('#send').disabled=true;
+ try{await fetch('/api/say',{method:'POST',body:JSON.stringify({ch:cur,text:t})})}
+ catch(e){}
+ $('#send').disabled=false;loadMsgs()}
 $('#send').onclick=send;
 $('#in').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
-sessions();feed();setInterval(sessions,15000);setInterval(feed,10000);
+switchCh('manager');setInterval(loadMsgs,4000);setInterval(sidebar,15000);sidebar();
 </script></body></html>"""
 
 
@@ -138,8 +198,60 @@ def manager_reply(text):
         return r.stdout.strip() or "(empty reply)"
 
 
-def project_dir(cwd):
-    return Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", cwd)
+def chat_append(role, text):
+    CHAT_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with CHAT_LOG.open("a") as fh:
+        fh.write(json.dumps({"role": role, "text": text, "ts": time.time()}) + "\n")
+
+
+def display_name(sid, names):
+    if sid in names:
+        return names[sid]
+    if sid in ("fnp-console",):
+        return "you"
+    if sid == "bus-daemon":
+        return "daemon"
+    proj = bus._project_of(sid)
+    return proj.split("-")[-1] if proj else sid[:8]
+
+
+def channel_messages(ch, names):
+    """Messages for a channel from bus q/a files (or the manager chat log)."""
+    out = []
+    if ch == "manager":
+        if CHAT_LOG.exists():
+            for line in CHAT_LOG.read_text().splitlines()[-200:]:
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                out.append({"who": "you" if d["role"] == "user" else "manager",
+                            "t": time.strftime("%b %d %H:%M", time.localtime(d["ts"])),
+                            "text": d["text"]})
+        return out
+    events = bus.bus_events()
+    answered = set()
+    for ts, kind, qid, who, text, extra in events:
+        if kind == "A":
+            answered.add(qid)
+    for ts, kind, qid, who, text, extra in events:
+        rel = (ch == "general" and (kind == "Q" and extra == "all"))
+        if ch != "general":
+            rel = who == ch or (kind == "Q" and extra == ch)
+        if kind == "A" and ch == "general":
+            # answers to broadcast questions belong in #general
+            q = next((e for e in events if e[1] == "Q" and e[2] == qid), None)
+            rel = bool(q and q[5] == "all")
+        if not rel:
+            continue
+        m = {"who": display_name(who, names),
+             "t": time.strftime("%b %d %H:%M", time.localtime(ts)), "text": text}
+        if kind == "A" and extra == "ERROR":
+            m["ok"] = False
+        out.append(m)
+        if kind == "Q" and qid not in answered:
+            out.append({"who": "bus", "t": "", "text": "awaiting reply…", "pending": True})
+    return out
 
 
 class H(BaseHTTPRequestHandler):
@@ -151,68 +263,74 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
+    def _html(self, text):
+        b = text.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(b)))
+        self.end_headers()
+        self.wfile.write(b)
+
     def do_GET(self):
         from urllib.parse import urlparse, parse_qs
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         if u.path == "/":
-            b = HTML.encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(b)))
-            self.end_headers()
-            self.wfile.write(b)
-        elif u.path == "/api/sessions":
-            import app as menubar
-            out = []
-            live = bus.live_sessions()
-            states = {}
-            for name, topic, state, _ in menubar.build_session_list():
-                states[name] = state
-            for sid, cwd in sorted(live.items(), key=lambda kv: kv[1]):
-                name = Path(cwd).name
-                out.append({"sid": sid, "cwd": cwd, "name": name,
-                            "state": states.get(name, "?")})
-            self._json(out)
-        elif u.path == "/api/memory":
-            sid = q.get("sid", "")
-            cwd = bus.live_sessions().get(sid)
-            if not cwd:
-                self._json({"files": []})
-                return
-            mdir = project_dir(cwd) / "memory"
-            if q.get("file"):
-                f = (mdir / q["file"]).resolve()
-                if mdir.resolve() not in f.parents and f != mdir.resolve():
-                    self._json({"content": "(outside memory dir)"}, 400)
-                    return
-                try:
-                    self._json({"content": f.read_text(errors="replace")[:40000]})
-                except OSError:
-                    self._json({"content": "(unreadable)"})
+            self._html(HTML)
+        elif u.path == "/dashboard":
+            if DASHBOARD.exists():
+                self._html(DASHBOARD.read_text(errors="replace"))
             else:
-                files = sorted(p.name for p in mdir.glob("*.md")) if mdir.exists() else []
-                self._json({"files": files})
-        elif u.path == "/api/bus":
+                self._html("<h3>no dashboard yet</h3>")
+        elif u.path == "/api/channels":
+            import app as menubar
+            states = {n: s for n, _, s, _ in
+                      [(x[0], x[1], x[2], x[3]) for x in menubar.build_session_list()]}
+            sessions = []
+            for sid, cwd in sorted(bus.live_sessions().items(), key=lambda kv: kv[1]):
+                name = Path(cwd).name
+                sessions.append({"sid": sid, "name": name,
+                                 "state": states.get(name, "waiting")})
+            self._json({"sessions": sessions, "dashboard": DASHBOARD.exists()})
+        elif u.path == "/api/messages":
             names = {s: Path(c).name for s, c in bus.live_sessions().items()}
-            ev = []
-            for ts, kind, qid, who, text, extra in bus.bus_events(limit=12):
-                ev.append({"t": time.strftime("%H:%M", time.localtime(ts)),
-                           "icon": "❓" if kind == "Q" else "💬",
-                           "who": names.get(who, who[:8]), "text": text[:160]})
-            self._json(ev)
+            self._json(channel_messages(q.get("ch", "manager"), names))
         else:
             self._json({"err": "not found"}, 404)
 
     def do_POST(self):
-        if self.path != "/api/chat":
-            self._json({"err": "not found"}, 404)
-            return
+        import os
         n = int(self.headers.get("Content-Length", 0))
-        text = json.loads(self.rfile.read(n))["text"]
-        with LOCK:
-            reply = manager_reply(text)
-        self._json({"reply": reply})
+        body = json.loads(self.rfile.read(n)) if n else {}
+        if self.path == "/api/jump":
+            info = bus.live_sessions_full().get(body.get("sid", ""))
+            if info and info.get("warp"):
+                subprocess.run(["open", f"warp://session/{info['warp']}"])
+                self._json({"ok": True})
+            else:
+                self._json({"ok": False}, 404)
+        elif self.path == "/api/say":
+            ch, text = body.get("ch", "manager"), body.get("text", "").strip()
+            if not text:
+                self._json({"err": "empty"}, 400)
+                return
+            if ch == "manager":
+                chat_append("user", text)
+                with LOCK:
+                    reply = manager_reply(text)
+                chat_append("manager", reply)
+                self._json({"ok": True})
+            else:
+                import uuid as _uuid
+                qid = time.strftime("%Y%m%d-%H%M%S") + "-" + _uuid.uuid4().hex[:6]
+                bus.QDIR.mkdir(parents=True, exist_ok=True)
+                (bus.QDIR / f"{qid}.json").write_text(json.dumps(
+                    {"id": qid, "from": "fnp-console", "from_cwd": str(HERE),
+                     "to": "all" if ch == "general" else ch,
+                     "text": text, "ts": time.time()}))
+                self._json({"ok": True, "qid": qid})
+        else:
+            self._json({"err": "not found"}, 404)
 
     def log_message(self, *a):
         pass
