@@ -260,9 +260,10 @@ def cmd_spawn(args):
     """Open a NEW visible Warp tab running claude in a folder (user can watch)."""
     d = Path(args.dir).expanduser().resolve()
     d.mkdir(parents=True, exist_ok=True)
-    claude_cmd = "claude"  # user shell alias already adds skip-permissions
+    claude_cmd = "claude"
     if args.prompt:
         claude_cmd += " " + json.dumps(args.prompt)  # json.dumps = safe shell quoting here
+    yaml_exec = "'" + claude_cmd.replace("'", "''") + "'"  # YAML single-quote: ':' etc. safe
     cfg = f"""---
 name: bus-spawn
 windows:
@@ -271,7 +272,7 @@ windows:
         layout:
           cwd: {d}
           commands:
-            - exec: {claude_cmd}
+            - exec: {yaml_exec}
 """
     cfgdir = Path.home() / ".warp" / "launch_configurations"
     cfgdir.mkdir(parents=True, exist_ok=True)
