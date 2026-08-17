@@ -45,7 +45,10 @@ TRUST DISCIPLINE — you are the user's highest-trust surface. Never report an a
 
 HARD LIMIT: your chat turn is killed at 10 minutes. Never do long work inline — no builds, no multi-question bus sweeps with long waits, no writing whole apps in-turn. For anything heavy, background a subagent and reply immediately with where its output will land:
   nohup claude -p --dangerously-skip-permissions "task..." > /tmp/mgr-task-X.log 2>&1 &
-Then tell the user the log/output path. You can check on it in a later turn."""
+
+FOLLOW-UPS — never promise "I'll report back" without arming the mechanism. Whenever you background work, register it:
+  echo '/tmp/mgr-task-X.log | post a summary of the results to the user' >> ~/.claude/bus/followups.txt
+The console watches each registered file; when it goes quiet (finished writing), you are woken with an [auto follow-up] message telling you to read it and post the promised update. Without this registration you will NEVER be woken — a promise without a followups.txt line is a lie."""
 
 HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Manager</title>
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
@@ -117,7 +120,7 @@ padding:0 16px;cursor:pointer;margin:4px 0}button:disabled{opacity:.4}
 </div>
 <script>
 const $=q=>document.querySelector(q), $$=q=>document.querySelectorAll(q);
-let cur='manager', names={}, inflight=false;
+let cur='manager', names={}, inflightCh=null;
 const COLORS=['#5865f2','#23a559','#f0b232','#eb459e','#3ba55c','#faa61a','#7289da','#e91e63'];
 const col=s=>COLORS[[...s].reduce((a,c)=>a+c.charCodeAt(0),0)%COLORS.length];
 const md=t=>DOMPurify.sanitize(marked.parse(t||''));
@@ -149,7 +152,7 @@ function render(list){const el=$('#msgs');el.innerHTML='';
    <span class="t">${m.t}</span></div><div class="txt">${m.pending?'<span class="pending">'+m.text+'</span>':md(m.text)}</div></div>`;
   el.appendChild(d)});
  el.scrollTop=1e9}
-async function loadMsgs(){if(inflight)return;const d=await j('/api/messages?ch='+cur);render(d)}
+async function loadMsgs(){if(inflightCh===cur)return;const d=await j('/api/messages?ch='+cur);render(d)}
 function switchCh(ch){cur=ch;$('#head').innerHTML=chName()+`<small>${chTopic()}</small>`;
  $('#in').placeholder='Message '+chName();sidebar();loadMsgs()}
 $$('#side .ch').forEach(e=>e.onclick=()=>switchCh(e.dataset.ch));
@@ -163,10 +166,10 @@ async function send(){const t=$('#in').value.trim();if(!t)return;$('#in').value=
  bubble('you',t);
  const wait=bubble(cur==='manager'?'manager':'bus',
   cur==='manager'?'thinking…':'delivering to fork(s)…',true);
- const ch=cur;$('#send').disabled=true;inflight=true;
+ const ch=cur;$('#send').disabled=true;inflightCh=ch;
  try{await fetch('/api/say',{method:'POST',body:JSON.stringify({ch,text:t})})}
  catch(e){wait.querySelector('.txt').textContent='send failed: '+e}
- $('#send').disabled=false;inflight=false;if(cur===ch)loadMsgs()}
+ $('#send').disabled=false;inflightCh=null;if(cur===ch)loadMsgs()}
 $('#send').onclick=send;
 $('#in').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 switchCh('manager');setInterval(loadMsgs,4000);setInterval(sidebar,15000);sidebar();
@@ -345,6 +348,42 @@ class H(BaseHTTPRequestHandler):
         pass
 
 
+FOLLOWUPS = Path.home() / ".claude" / "bus" / "followups.txt"
+QUIET_SECS = 90  # file unchanged this long + nonempty => work finished
+
+
+def followup_watcher():
+    """Wake the manager when a registered background task's log goes quiet."""
+    while True:
+        time.sleep(30)
+        if not FOLLOWUPS.exists():
+            continue
+        lines = [l for l in FOLLOWUPS.read_text().splitlines() if l.strip()]
+        keep = []
+        for line in lines:
+            path, _, instr = (p.strip() for p in line.partition("|"))
+            f = Path(path).expanduser()
+            done = (f.exists() and f.stat().st_size > 0
+                    and time.time() - f.stat().st_mtime > QUIET_SECS)
+            # a task that never wrote anything for 30 min is dead — wake for that too
+            if not done and f.exists() and time.time() - f.stat().st_mtime > 1800:
+                done = True
+            if not done:
+                keep.append(line)
+                continue
+            prompt = (f"[auto follow-up] Background task log {path} has finished "
+                      f"(quiet {QUIET_SECS}s+). Your registered instruction: "
+                      f"{instr or 'summarize the result for the user'}. Read the log "
+                      "and post the promised update now. If it failed, say so plainly.")
+            chat_append("user", prompt)
+            with LOCK:
+                reply = manager_reply(prompt)
+            chat_append("manager", reply)
+            print(f"follow-up fired for {path}", flush=True)
+        FOLLOWUPS.write_text("\n".join(keep) + ("\n" if keep else ""))
+
+
 if __name__ == "__main__":
     print(f"manager console: http://localhost:{PORT}")
+    threading.Thread(target=followup_watcher, daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
