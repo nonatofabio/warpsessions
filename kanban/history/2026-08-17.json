@@ -1,0 +1,190 @@
+{
+  "ts": 1786990119.3084219,
+  "date": "2026-08-17",
+  "week_of": "2026-08-17",
+  "cards": [
+    {
+      "id": "conte-tetra",
+      "track": "Conte for tetra",
+      "title": "Conte for tetra",
+      "lane": "Backlog",
+      "notes": "Low priority. Little progress expected. No prio for fnp.",
+      "links": [
+        {
+          "label": "tetra/",
+          "href": "file:///Users/fnp/Documents/wd/dev/tetra"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "iguazu",
+      "track": "Iguazu data / intent-benchmark",
+      "title": "Iguazu data / intent-benchmark",
+      "lane": "In Progress",
+      "notes": "Conclude scraping and testing of OUR dataset. Validate whether the SWE-bench Verified EXPANSION is sound. Hypothesis: our data may be SATURATED for the agents out of the gate (too easy), so we will probably must extend to MORE swe-benches.",
+      "links": [
+        {
+          "label": "intent-benchmark/",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark"
+        },
+        {
+          "label": "iguazu/",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/iguazu"
+        },
+        {
+          "label": "swe-bench-track worktree",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark/.claude/worktrees/swe-bench-track"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "iguazu-a",
+      "track": "Iguazu data / intent-benchmark",
+      "title": "(a) Conclude own-dataset scrape + test",
+      "lane": "In Progress",
+      "notes": "Finish the scrape and the test pass of our own dataset.",
+      "links": [
+        {
+          "label": "intent-benchmark/",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "iguazu-b",
+      "track": "Iguazu data / intent-benchmark",
+      "title": "(b) Validate SWE-bench Verified expansion soundness",
+      "lane": "In Progress",
+      "notes": "Check that the SWE-bench Verified EXPANSION is methodologically sound.",
+      "links": [
+        {
+          "label": "swe-bench-track worktree",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark/.claude/worktrees/swe-bench-track"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "iguazu-c",
+      "track": "Iguazu data / intent-benchmark",
+      "title": "(c) Assess saturation, decide if more benchmarks needed",
+      "lane": "Backlog",
+      "notes": "If the data is too easy (saturated) out of the gate, decide to extend to more SWE-benches. Depends on (b).",
+      "links": [],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "strands-bpe",
+      "track": "Strands BPE (track 1)",
+      "title": "Strands BPE (track 1)",
+      "lane": "In Progress",
+      "notes": "Get the LoRA-SFT training done. See if it translates to SWE-bench gains or is flat. Simple tools-only version looks FLAT on SWE-bench. Forward bet: improve TOOL DESCRIPTIONS to make BPE more useful for SWE tasks.",
+      "links": [
+        {
+          "label": "evoharness-rl/",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl"
+        },
+        {
+          "label": "PROJECT_STATUS.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl/PROJECT_STATUS.md"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "strands-bpe-a",
+      "track": "Strands BPE (track 1)",
+      "title": "(a) Validate latest results table",
+      "lane": "In Progress",
+      "notes": "An independent agent is validating this NOW. Tools-only version looks flat on SWE-bench.",
+      "links": [
+        {
+          "label": "results/eval_results.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl/results/eval_results.md"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "strands-bpe-b",
+      "track": "Strands BPE (track 1)",
+      "title": "(b) LoRA-SFT training go/no-go",
+      "lane": "Blocked",
+      "notes": "Blocked: pending dataset sign-off.",
+      "links": [
+        {
+          "label": "evoharness-rl/",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "strands-bpe-c",
+      "track": "Strands BPE (track 1)",
+      "title": "(c) Tool-description improvement experiment",
+      "lane": "Backlog",
+      "notes": "Forward bet: improve tool descriptions so BPE helps more on SWE tasks.",
+      "links": [],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "strands-bpe-d",
+      "track": "Strands BPE (track 1)",
+      "title": "(d) Does it translate to SWE-bench gains?",
+      "lane": "Backlog",
+      "notes": "Open question the track must answer: real SWE-bench gain, or flat?",
+      "links": [],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "strands-bench-team",
+      "track": "Strands benchmark team (track 2, net new)",
+      "title": "Strands benchmark team (net new)",
+      "lane": "In Progress",
+      "notes": "fnp starts working WITH the Strands benchmark team this week. Net-new collaboration, kicking off this week.",
+      "links": [
+        {
+          "label": "Strands/",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "auto-research",
+      "track": "Auto-research (research-automation)",
+      "title": "Auto-research (research-automation)",
+      "lane": "In Progress",
+      "notes": "Validate whether it is ACHIEVABLE. An overnight validator session produced VERDICT.md. Current verdict: CONDITIONAL, fund a 4-week spike, not the 6-month bet as pitched.",
+      "links": [
+        {
+          "label": "research-automation/",
+          "href": "file:///Users/fnp/Documents/wd/dev/research-automation"
+        },
+        {
+          "label": "VERDICT.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/research-automation/VERDICT.md"
+        }
+      ],
+      "updated": "2026-08-17"
+    },
+    {
+      "id": "auto-research-a",
+      "track": "Auto-research (research-automation)",
+      "title": "(a) Read overnight VERDICT.md verdict + cruxes",
+      "lane": "In Progress",
+      "notes": "Read the overnight verdict and its cruxes. Verdict is CONDITIONAL.",
+      "links": [
+        {
+          "label": "VERDICT.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/research-automation/VERDICT.md"
+        }
+      ],
+      "updated": "2026-08-17"
+    }
+  ]
+}

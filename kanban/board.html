@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kanban — Week of Monday 17 August 2026</title><style>
+:root{--bg:#0e1216;--panel:#171d24;--fg:#d8dee6;--dim:#7a8494;--acc:#5ec2b7;
+--red:#e5647d;--amber:#e0a955;--line:#242c36;--blue:#6ea8fe}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);
+font:14px/1.5 -apple-system,BlinkMacSystemFont,Helvetica,sans-serif}
+header{padding:22px 28px 10px}h1{margin:0;font-size:20px}
+.sub{color:var(--dim);font-size:13px;margin-top:4px}
+.board{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));
+gap:14px;padding:16px 28px;align-items:start}
+.lane{background:#12171d;border:1px solid var(--line);border-radius:12px;
+padding:10px 10px 14px;min-height:80px}
+.lane h2{margin:2px 4px 10px;font-size:12px;text-transform:uppercase;
+letter-spacing:1px;color:var(--dim);display:flex;justify-content:space-between}
+.lane h2 .n{color:var(--fg);opacity:.6}
+.lane.backlog{border-top:3px solid var(--dim)}
+.lane.wip{border-top:3px solid var(--acc)}
+.lane.blocked{border-top:3px solid var(--red)}
+.lane.done{border-top:3px solid var(--blue)}
+.card{background:var(--panel);border-radius:10px;padding:10px 12px;margin:8px 0;
+border-left:4px solid var(--acc);overflow-wrap:anywhere}
+.card.blocked{border-left-color:var(--red)}
+.card.backlog{border-left-color:var(--dim)}
+.card.done{border-left-color:var(--blue)}
+.card.sub{margin-left:10px;background:#141a21}
+.card .trk{font-size:10px;text-transform:uppercase;letter-spacing:1px;
+color:var(--dim);margin-bottom:3px}
+.card h3{margin:0 0 5px;font-size:14px}
+.card .notes{color:var(--fg);font-size:12.5px;white-space:pre-wrap}
+.card .links{margin-top:7px;display:flex;flex-wrap:wrap;gap:6px}
+.card .links a{font-size:11px;color:var(--acc);text-decoration:none;
+border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+.card .links a:hover{border-color:var(--acc)}
+.card .upd{color:var(--dim);font-size:10px;margin-top:6px}
+.empty{color:var(--dim);font-style:italic;font-size:12px;padding:6px 4px}
+footer{color:var(--dim);font-size:12px;padding:10px 28px 30px}
+</style></head><body>
+<header><h1>Weekly kanban</h1>
+<div class="sub">Week of Monday 17 August 2026 · 13 card(s) · generated 17 Aug 2026 11:08</div></header>
+<div class="board"><div class="lane backlog"><h2>Backlog<span class="n">4</span></h2><div class="card backlog"><div class="trk">Conte for tetra</div><h3>Conte for tetra</h3><div class="notes">Low priority. Little progress expected. No prio for fnp.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/tetra">tetra/</a></div><div class="upd">updated 2026-08-17</div></div><div class="card backlog sub"><div class="trk">Iguazu data / intent-benchmark</div><h3>(c) Assess saturation, decide if more benchmarks needed</h3><div class="notes">If the data is too easy (saturated) out of the gate, decide to extend to more SWE-benches. Depends on (b).</div><div class="upd">updated 2026-08-17</div></div><div class="card backlog sub"><div class="trk">Strands BPE (track 1)</div><h3>(c) Tool-description improvement experiment</h3><div class="notes">Forward bet: improve tool descriptions so BPE helps more on SWE tasks.</div><div class="upd">updated 2026-08-17</div></div><div class="card backlog sub"><div class="trk">Strands BPE (track 1)</div><h3>(d) Does it translate to SWE-bench gains?</h3><div class="notes">Open question the track must answer: real SWE-bench gain, or flat?</div><div class="upd">updated 2026-08-17</div></div></div><div class="lane wip"><h2>In Progress<span class="n">8</span></h2><div class="card wip"><div class="trk">Iguazu data / intent-benchmark</div><h3>Iguazu data / intent-benchmark</h3><div class="notes">Conclude scraping and testing of OUR dataset. Validate whether the SWE-bench Verified EXPANSION is sound. Hypothesis: our data may be SATURATED for the agents out of the gate (too easy), so we will probably must extend to MORE swe-benches.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark">intent-benchmark/</a><a href="file:///Users/fnp/Documents/wd/dev/ithala/iguazu">iguazu/</a><a href="file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark/.claude/worktrees/swe-bench-track">swe-bench-track worktree</a></div><div class="upd">updated 2026-08-17</div></div><div class="card wip sub"><div class="trk">Iguazu data / intent-benchmark</div><h3>(a) Conclude own-dataset scrape + test</h3><div class="notes">Finish the scrape and the test pass of our own dataset.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark">intent-benchmark/</a></div><div class="upd">updated 2026-08-17</div></div><div class="card wip sub"><div class="trk">Iguazu data / intent-benchmark</div><h3>(b) Validate SWE-bench Verified expansion soundness</h3><div class="notes">Check that the SWE-bench Verified EXPANSION is methodologically sound.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark/.claude/worktrees/swe-bench-track">swe-bench-track worktree</a></div><div class="upd">updated 2026-08-17</div></div><div class="card wip"><div class="trk">Strands BPE (track 1)</div><h3>Strands BPE (track 1)</h3><div class="notes">Get the LoRA-SFT training done. See if it translates to SWE-bench gains or is flat. Simple tools-only version looks FLAT on SWE-bench. Forward bet: improve TOOL DESCRIPTIONS to make BPE more useful for SWE tasks.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl">evoharness-rl/</a><a href="file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl/PROJECT_STATUS.md">PROJECT_STATUS.md</a></div><div class="upd">updated 2026-08-17</div></div><div class="card wip sub"><div class="trk">Strands BPE (track 1)</div><h3>(a) Validate latest results table</h3><div class="notes">An independent agent is validating this NOW. Tools-only version looks flat on SWE-bench.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl/results/eval_results.md">results/eval_results.md</a></div><div class="upd">updated 2026-08-17</div></div><div class="card wip"><div class="trk">Strands benchmark team (track 2, net new)</div><h3>Strands benchmark team (net new)</h3><div class="notes">fnp starts working WITH the Strands benchmark team this week. Net-new collaboration, kicking off this week.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/Strands">Strands/</a></div><div class="upd">updated 2026-08-17</div></div><div class="card wip"><div class="trk">Auto-research (research-automation)</div><h3>Auto-research (research-automation)</h3><div class="notes">Validate whether it is ACHIEVABLE. An overnight validator session produced VERDICT.md. Current verdict: CONDITIONAL, fund a 4-week spike, not the 6-month bet as pitched.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/research-automation">research-automation/</a><a href="file:///Users/fnp/Documents/wd/dev/research-automation/VERDICT.md">VERDICT.md</a></div><div class="upd">updated 2026-08-17</div></div><div class="card wip sub"><div class="trk">Auto-research (research-automation)</div><h3>(a) Read overnight VERDICT.md verdict + cruxes</h3><div class="notes">Read the overnight verdict and its cruxes. Verdict is CONDITIONAL.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/research-automation/VERDICT.md">VERDICT.md</a></div><div class="upd">updated 2026-08-17</div></div></div><div class="lane blocked"><h2>Blocked<span class="n">1</span></h2><div class="card blocked sub"><div class="trk">Strands BPE (track 1)</div><h3>(b) LoRA-SFT training go/no-go</h3><div class="notes">Blocked: pending dataset sign-off.</div><div class="links"><a href="file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl">evoharness-rl/</a></div><div class="upd">updated 2026-08-17</div></div></div><div class="lane done"><h2>Done<span class="n">0</span></h2><div class="empty">nothing here</div></div></div>
+<footer>Source of truth: kanban/board.json · Regenerated by kanban/render.py ·
+Snapshots: kanban/history/*.json</footer>
+</body></html>

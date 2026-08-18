@@ -50,8 +50,32 @@ def sid_for_cwd(cwd):
     return fs[0].stem if fs else None
 
 
+REGISTRY = BUS / "registry"
+
+
+def _registry_by_warp():
+    """{warp_uuid: entry} from hook-written registry, newest entry wins per tab."""
+    out = {}
+    for f in REGISTRY.glob("*.json") if REGISTRY.exists() else []:
+        try:
+            e = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        w = e.get("warp")
+        if w and (w not in out or e.get("ts", 0) > out[w].get("ts", 0)):
+            out[w] = e
+    return out
+
+
 def live_sessions_full():
-    """{session_id: {cwd, warp, pid}} for running claude processes."""
+    """{session_id: {cwd, warp, pid}} for running claude processes.
+
+    Identity: the registry (SessionStart/UserPromptSubmit hook records
+    sid<->warp-tab) is authoritative — it disambiguates multiple sessions
+    sharing one cwd. Fallback for unregistered sessions: newest transcript
+    in the cwd's project dir (ambiguous if the cwd is shared).
+    """
+    reg = _registry_by_warp()
     out = {}
     pids = subprocess.run(["pgrep", "-x", "claude"],
                           capture_output=True, text=True).stdout.split()
@@ -64,10 +88,11 @@ def live_sessions_full():
         env = subprocess.run(["ps", "-p", pid, "-wwwE", "-o", "command="],
                              capture_output=True, text=True).stdout
         w = re.search(r"WARP_TERMINAL_SESSION_UUID=([0-9a-f]+)", env)
-        sid = sid_for_cwd(m.group(1))
+        warp = w.group(1) if w else None
+        hit = reg.get(warp) if warp else None
+        sid = hit["sid"] if hit else sid_for_cwd(m.group(1))
         if sid:
-            out[sid] = {"cwd": m.group(1),
-                        "warp": w.group(1) if w else None, "pid": pid}
+            out[sid] = {"cwd": m.group(1), "warp": warp, "pid": pid}
     return out
 
 
