@@ -281,6 +281,26 @@ def cmd_inject(args):
     print(f"injected into {args.sid[:8]} ({Path(info['cwd']).name})")
 
 
+INBOX = BUS / "inbox"
+
+
+def cmd_send(args):
+    """Drop a message in a session's inbox — delivered via hooks, no keystrokes.
+
+    Delivery: when the target session next finishes a turn (Stop hook blocks
+    the stop with the message -> handled immediately if it's working) or when
+    its user next submits a prompt (added as context). Idle sessions see it
+    on their next activity; use inject for drop-everything-now delivery.
+    """
+    me = sid_for_cwd(os.getcwd()) or "unknown"
+    d = INBOX / args.sid
+    d.mkdir(parents=True, exist_ok=True)
+    mid = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+    (d / f"{mid}.json").write_text(json.dumps(
+        {"from": me, "text": args.text, "ts": time.time()}))
+    print(f"queued for {args.sid[:8]} (delivered on its next turn-end or prompt)")
+
+
 def cmd_spawn(args):
     """Open a NEW visible Warp tab running claude in a folder (user can watch)."""
     d = Path(args.dir).expanduser().resolve()
@@ -421,7 +441,10 @@ if __name__ == "__main__":
     sp = sub.add_parser("spawn")
     sp.add_argument("dir", help="folder for the new session (created if missing)")
     sp.add_argument("prompt", nargs="?", default="", help="optional kickoff prompt")
+    snd = sub.add_parser("send")
+    snd.add_argument("sid", help="target session id")
+    snd.add_argument("text", help="message text")
     args = ap.parse_args()
     {"sessions": cmd_sessions, "ask": cmd_ask, "status": cmd_status,
      "daemon": cmd_daemon, "log": cmd_log, "inject": cmd_inject,
-     "spawn": cmd_spawn}[args.cmd](args)
+     "spawn": cmd_spawn, "send": cmd_send}[args.cmd](args)

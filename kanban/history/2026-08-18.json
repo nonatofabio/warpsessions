@@ -1,4 +1,6 @@
 {
+  "ts": 1787069534.374686,
+  "date": "2026-08-18",
   "week_of": "2026-08-17",
   "updated": "2026-08-18",
   "cards": [
@@ -9,11 +11,13 @@
       "lane": "Backlog",
       "notes": "Low priority. Little progress expected. No prio for fnp.",
       "links": [
-        {"label": "tetra/", "href": "file:///Users/fnp/Documents/wd/dev/tetra"}
+        {
+          "label": "tetra/",
+          "href": "file:///Users/fnp/Documents/wd/dev/tetra"
+        }
       ],
       "updated": "2026-08-17"
     },
-
     {
       "id": "iguazu",
       "track": "Iguazu data / intent-benchmark",
@@ -21,9 +25,18 @@
       "lane": "In Progress",
       "notes": "TUESDAY DEADLINE COVERED. SWE agent grid done: 24/24, 2 intent-rescues, 0 regressions, mechanism proven. Saturation CONFIRMED: 22/24 solve at baseline with no context, Verified has little headroom. Findings doc merged to main (kiro_findings.md). Next benchmark must be harder (SWE-bench Pro).",
       "links": [
-        {"label": "intent-benchmark/", "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark"},
-        {"label": "iguazu/", "href": "file:///Users/fnp/Documents/wd/dev/ithala/iguazu"},
-        {"label": "swe-bench-track worktree", "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark/.claude/worktrees/swe-bench-track"}
+        {
+          "label": "intent-benchmark/",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark"
+        },
+        {
+          "label": "iguazu/",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/iguazu"
+        },
+        {
+          "label": "swe-bench-track worktree",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark/.claude/worktrees/swe-bench-track"
+        }
       ],
       "updated": "2026-08-17"
     },
@@ -34,7 +47,10 @@
       "lane": "In Progress",
       "notes": "Mining v3 grid still running (django done, vinext/ruff/aider landing). Seed-0 baseline signal solid: 11/12 discordants favor context, iii 12/12 on replication.",
       "links": [
-        {"label": "intent-benchmark/", "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark"}
+        {
+          "label": "intent-benchmark/",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark"
+        }
       ],
       "updated": "2026-08-17"
     },
@@ -45,7 +61,10 @@
       "lane": "Done",
       "notes": "DONE. 500/500 adapted, 485 IG-scored. Paired agent grid on 24 high-gap: monotone i22/ii23/iii24, 2 rescues (django-14140, sphinx-8638 iii-only = links load-bearing), 0 regressions. 5ab7983 merged to main.",
       "links": [
-        {"label": "kiro_findings.md", "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark/.claude/worktrees/swe-bench-track/docs/status/kiro_findings.md"}
+        {
+          "label": "kiro_findings.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/ithala/intent-benchmark/.claude/worktrees/swe-bench-track/docs/status/kiro_findings.md"
+        }
       ],
       "updated": "2026-08-18"
     },
@@ -58,7 +77,6 @@
       "links": [],
       "updated": "2026-08-18"
     },
-
     {
       "id": "strands-bpe",
       "track": "Strands BPE (track 1)",
@@ -66,8 +84,14 @@
       "lane": "Blocked",
       "notes": "KILLER-FEATURE VERDICT: MAYBE, leaning NO for coding. Untrained BPE is FLAT on SWE-bench Pro (clean rev2: Sonnet5 +0.7pp p=1.0, Sonnet4.5 -1.4pp, Haiku +5pp p=0.09); strong on ALFWorld. Trained multi-turn could still flip it but is BLOCKED on GPU capacity (p4de InsufficientInstanceCapacity). Caveat: only multi-turn traces on hand are ALFWorld, not SWE. Evoharness pushed to GitFarm (StanEvoharness mainline).",
       "links": [
-        {"label": "evoharness-rl/", "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl"},
-        {"label": "PROJECT_STATUS.md", "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl/PROJECT_STATUS.md"}
+        {
+          "label": "evoharness-rl/",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl"
+        },
+        {
+          "label": "PROJECT_STATUS.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl/PROJECT_STATUS.md"
+        }
       ],
       "updated": "2026-08-17"
     },
@@ -78,7 +102,10 @@
       "lane": "Done",
       "notes": "DONE. Independent validation found the table fnp saw was the CONTAMINATED rev1 round (disk-full artifacts faked +14.3pp win and -11.4pp harm). Clean rev2 shows BPE flat on coding. rev1 retracted, rev2 authoritative.",
       "links": [
-        {"label": "results/eval_results.md", "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl/results/eval_results.md"}
+        {
+          "label": "results/eval_results.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl/results/eval_results.md"
+        }
       ],
       "updated": "2026-08-17"
     },
@@ -89,7 +116,10 @@
       "lane": "Blocked",
       "notes": "GO given by fnp. Single-turn SFT done (Qwen3-8B 0.7/0.0 -> 2.1/2.9%, still floored, taught format not execution). Multi-turn NOT run: blocked on GPU capacity. RISK: train_sft.py exists only on a stopped box's disk, not committed to repo (data-loss risk). Once a box starts, LoRA+eval ~4-6h.",
       "links": [
-        {"label": "evoharness-rl/", "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl"}
+        {
+          "label": "evoharness-rl/",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/evoharness-rl"
+        }
       ],
       "updated": "2026-08-17"
     },
@@ -111,7 +141,6 @@
       "links": [],
       "updated": "2026-08-17"
     },
-
     {
       "id": "strands-bench-team",
       "track": "Strands benchmark team (track 2, net new)",
@@ -119,11 +148,13 @@
       "lane": "In Progress",
       "notes": "Paper agent CONFIRMED = 'stan' session (Strands/stan). Scaffold merged (branch paper/main, PR #34), Overleaf git-bridge wired, ~77 refs curated. Leaning toward cross-provider default-choice ablations + compaction constraint-retention as the paper angle (NOT BPE). 1-month release + paper deadline. NEEDS from fnp: pick the innovation angle. NEEDS from training track: model/checkpoint scope + shared harness.",
       "links": [
-        {"label": "Strands/stan", "href": "file:///Users/fnp/Documents/wd/dev/Strands/stan"}
+        {
+          "label": "Strands/stan",
+          "href": "file:///Users/fnp/Documents/wd/dev/Strands/stan"
+        }
       ],
       "updated": "2026-08-17"
     },
-
     {
       "id": "auto-research",
       "track": "Auto-research (research-automation)",
@@ -131,8 +162,14 @@
       "lane": "In Progress",
       "notes": "Validate whether it is ACHIEVABLE. An overnight validator session produced VERDICT.md. Current verdict: CONDITIONAL, fund a 4-week spike, not the 6-month bet as pitched.",
       "links": [
-        {"label": "research-automation/", "href": "file:///Users/fnp/Documents/wd/dev/research-automation"},
-        {"label": "VERDICT.md", "href": "file:///Users/fnp/Documents/wd/dev/research-automation/VERDICT.md"}
+        {
+          "label": "research-automation/",
+          "href": "file:///Users/fnp/Documents/wd/dev/research-automation"
+        },
+        {
+          "label": "VERDICT.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/research-automation/VERDICT.md"
+        }
       ],
       "updated": "2026-08-17"
     },
@@ -143,7 +180,10 @@
       "lane": "Done",
       "notes": "VERDICT delivered: CONDITIONAL, fund a 4-week spike not the 6-month bet. Cruxes: (1) ResearchCrew engine unreachable/empty skeleton, (2) Strands wedge unbenchmarked + own artifacts use boto3/kiro-cli, (3) sealed-oracle abduction != open-world reproduction. Council 3/6/6/6. Action for fnp: fix cantjump 'four models'->'two clean' headline before any room.",
       "links": [
-        {"label": "VERDICT.md", "href": "file:///Users/fnp/Documents/wd/dev/research-automation/VERDICT.md"}
+        {
+          "label": "VERDICT.md",
+          "href": "file:///Users/fnp/Documents/wd/dev/research-automation/VERDICT.md"
+        }
       ],
       "updated": "2026-08-17"
     }
