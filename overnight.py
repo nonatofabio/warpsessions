@@ -71,6 +71,57 @@ def _is_clear(v):
     return not v or v.strip().lower() in ("none", "none.", "n/a", "-")
 
 
+def _transcript_tail(sid, max_chars=45000):
+    """Recent human-readable turns from a session transcript (text + tool intents).
+
+    Used for the fallback digest: resuming a huge session overflows the context
+    window ("Prompt is too long"), so we feed only the tail to a fresh -p call.
+    """
+    hits = list((Path.home() / ".claude" / "projects").glob(f"*/{sid}.jsonl"))
+    if not hits:
+        return ""
+    lines = hits[0].read_text(errors="replace").splitlines()
+    out = []
+    for ln in lines[-400:]:
+        try:
+            d = json.loads(ln)
+        except ValueError:
+            continue
+        t = d.get("type")
+        if t == "user" and not d.get("isMeta"):
+            c = d.get("message", {}).get("content")
+            if isinstance(c, str) and c.strip():
+                out.append(f"USER: {c[:800]}")
+        elif t == "assistant":
+            for b in d.get("message", {}).get("content", []):
+                if not isinstance(b, dict):
+                    continue
+                if b.get("type") == "text" and b.get("text", "").strip():
+                    out.append(f"ASSISTANT: {b['text'][:1200]}")
+                elif b.get("type") == "tool_use":
+                    out.append(f"[tool {b.get('name')}]")
+    return "\n".join(out)[-max_chars:]
+
+
+def digest_from_tail(sid, cwd):
+    """Fallback: digest from the transcript tail via a fresh (no-resume) call."""
+    tail = _transcript_tail(sid)
+    if not tail:
+        return None
+    prompt = (
+        "Below is the recent transcript tail of a Claude Code session in "
+        f"{Path(cwd).name}. Write Fabio's standup digest in EXACTLY this format:\n\n"
+        "PROGRESS: <1-3 bullets>\nBLOCKERS: <or 'none'>\nDECISIONS: <or 'none'>\n\n"
+        "Output ONLY those three sections.\n\n--- TRANSCRIPT TAIL ---\n" + tail)
+    try:
+        r = subprocess.run(
+            [claude_bin(), "-p", "--dangerously-skip-permissions", prompt],
+            cwd=cwd, capture_output=True, text=True, timeout=FORK_TIMEOUT)
+        return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+
+
 def spawn_digest_fork(sid, cwd):
     """Fork the session headless to answer the digest; return a live proc handle.
 
@@ -128,10 +179,18 @@ def sweep():
                 results[r["sid"]] = {"cwd": r["cwd"], "ok": True, "text": text}
             else:
                 err = r["err"].read_text()[-400:]
-                results[r["sid"]] = {"cwd": r["cwd"], "ok": False,
-                                     "text": f"(fork failed rc={rc}) {err}"}
-            print(f"digest from {Path(r['cwd']).name} rc={rc} "
-                  f"({len(text)} chars)", flush=True)
+                # Big sessions overflow on --resume ("Prompt is too long").
+                # Fall back to a tail-based digest with no resume.
+                fb = digest_from_tail(r["sid"], r["cwd"])
+                if fb:
+                    results[r["sid"]] = {"cwd": r["cwd"], "ok": True, "text": fb}
+                    print(f"digest from {Path(r['cwd']).name} via tail-fallback "
+                          f"({len(fb)} chars)", flush=True)
+                else:
+                    results[r["sid"]] = {"cwd": r["cwd"], "ok": False,
+                                         "text": f"(fork failed rc={rc}) {err}"}
+                    print(f"digest from {Path(r['cwd']).name} rc={rc} FAILED "
+                          f"(fork + fallback): {err[:80]}", flush=True)
             running.remove(r)
         if pending or running:
             time.sleep(3)
